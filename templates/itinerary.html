@@ -251,6 +251,34 @@
             const itineraryContainer            = document.getElementById('itinerary');
             itineraryContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
         }
+
+        
+
+
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Fetch the activities from the backend API
+            fetch('/get_activities')
+                .then(response => response.json())
+                .then(data => {
+                    // Stocker les activités dans le localStorage
+                    localStorage.setItem('filteredActivities', JSON.stringify(data));
+                    displayActivities(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la récupération des activités :', error);
+                    document.getElementById('activities-list').innerHTML = '<p>Erreur lors du chargement des activités.</p>';
+                });
+        });
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+
+
+
     </script>
 </body>
 </html>
