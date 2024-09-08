@@ -7,35 +7,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
-        /* Style pour le bouton Clear */
-        #clear-button {
-            background-color: #FF6347;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 20px;
-        }
-        #clear-button:hover {
-            background-color: #FF4500;
-        }
-
-        /* Rendre la liste des activités scrollable */
-        #activities-list {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
-            background-color: #f9f9f9;
-        }
-
-        /* Style général pour la carte */
-        #map {
-            height: 400px;
-            margin-top: 20px;
-        }
-
         /* Container pour le slider */
         .carousel-container {
             position: relative;
@@ -49,7 +20,7 @@
             flex-wrap: nowrap;
             overflow-x: auto;
             scroll-behavior: smooth;
-            width: 100%; /* Adapter à la largeur disponible */
+            width: 100%;
         }
 
         .day-container {
@@ -95,15 +66,6 @@
         .nav-button.right {
             right: 0;
         }
-
-        /* Flexibilité accrue pour le carousel */
-        .carousel-container {
-            display: flex;
-            align-items: center;
-            width: 100%;
-            max-width: 100%;
-            overflow: hidden;
-        }
     </style>
 </head>
 <body>
@@ -112,20 +74,15 @@
     <!-- Barre de recherche -->
     <input type="text" id="search-bar" placeholder="Rechercher une activité..." onkeyup="searchActivities()">
 
-    <!-- Bouton Clear pour réinitialiser les activités -->
-    <button id="clear-button" onclick="clearAll()">Réinitialiser</button>
-
     <div id="activities-list" class="activity-list" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
         <!-- Liste des activités filtrées sera générée ici -->
     </div>
 
     <!-- Container du slider pour les blocs jour -->
     <div class="carousel-container">
-        <!-- Boutons pour slider -->
         <button class="nav-button left" onclick="slideLeft()">⬅️</button>
         <button class="nav-button right" onclick="slideRight()">➡️</button>
 
-        <!-- Itinerary scrollable -->
         <div id="itinerary">
             <!-- Jours dynamiques seront générés ici -->
         </div>
@@ -135,33 +92,29 @@
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
-        // Initialiser la carte
         const map = L.map('map').setView([48.8566, 2.3522], 12);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Variables pour stocker les activités et les pins
         const activities = JSON.parse(localStorage.getItem('filteredActivities')) || [];
         const numDays = parseInt(localStorage.getItem('numDays')) || 3;
-        const pins = {}; // Stockage des pins pour chaque activité
+        const pins = {};
+        const detailsPins = {}; // Stocker les pins pour les détails dépliés
         const dayColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'];
+        const scrollAmount = 250;
 
-        let currentScrollPosition = 0;
-        const scrollAmount = 250; // Distance de défilement
-
-        // Initialiser le conteneur d'itinéraire
         const itineraryContainer = document.getElementById('itinerary');
         itineraryContainer.innerHTML = '';
 
-        // Générer les blocs pour chaque jour
+        // Créer les blocs J1, J2, etc.
         for (let i = 1; i <= numDays; i++) {
             const dayContainer = document.createElement('div');
             dayContainer.className = 'day-container';
             dayContainer.innerHTML = `
                 <div class="day-title">Jour ${i}</div>
-                <div class="activity-list" id="day-${i}" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div class="activity-list" id="day-${i}" ondrop="drop(event, ${i})" ondragover="allowDrop(event)">
                 </div>
             `;
             itineraryContainer.appendChild(dayContainer);
@@ -173,10 +126,9 @@
             document.getElementById('activities-list').innerHTML = '<p>Aucune activité à afficher.</p>';
         }
 
-        // Afficher la liste des activités
         function displayActivities(activities) {
             const activitiesList = document.getElementById('activities-list');
-            activitiesList.innerHTML = ''; // Nettoyer la liste
+            activitiesList.innerHTML = '';
 
             activities.forEach((activity, index) => {
                 const activityElement = document.createElement('div');
@@ -195,7 +147,6 @@
                 detailsElement.style.display = 'none';
                 activityElement.appendChild(detailsElement);
 
-                // Activer ou désactiver l'affichage des détails et du pin sur la carte
                 activityElement.addEventListener('click', function() {
                     const details = this.querySelector('.details');
                     const lat = this.dataset.latitude;
@@ -204,17 +155,19 @@
 
                     if (details.style.display === 'none') {
                         details.style.display = 'block';
-                        // Ajouter un pin sur la carte
-                        if (!pins[activityId]) {
-                            pins[activityId] = L.marker([lat, lon]).addTo(map)
+
+                        // Ajouter un pin pour les détails dépliés (cumulé avec le pin de couleur)
+                        if (!detailsPins[activityId]) {
+                            detailsPins[activityId] = L.marker([lat, lon]).addTo(map)
                                 .bindPopup(this.textContent);
                         }
                     } else {
                         details.style.display = 'none';
-                        // Supprimer le pin de la carte
-                        if (pins[activityId]) {
-                            map.removeLayer(pins[activityId]);
-                            delete pins[activityId];
+
+                        // Supprimer uniquement le pin des détails
+                        if (detailsPins[activityId]) {
+                            map.removeLayer(detailsPins[activityId]);
+                            delete detailsPins[activityId];
                         }
                     }
                 });
@@ -223,70 +176,46 @@
             });
         }
 
-        // Permettre le drop
         function allowDrop(ev) {
             ev.preventDefault();
         }
 
-        // Gérer le drag
         function drag(ev) {
             ev.dataTransfer.setData("text", ev.target.id);
         }
 
-        // Fonction pour gérer le drop dans un jour spécifique ou dans la liste initiale
-// Fonction pour gérer le drop dans un jour spécifique ou dans la liste initiale
-function drop(ev) {
-    ev.preventDefault();
-    const data = ev.dataTransfer.getData("text");
-    const activityElement = document.getElementById(data);
-    const targetList = ev.target.closest('.activity-list');
-
-    // Vérifier si l'élément est déplacé dans une liste de jour spécifique
-    if (targetList && targetList.id !== 'activities-list') {
-        targetList.appendChild(activityElement);
-
-        // Ajouter un pin sur la carte pour cette activité
-        const lat = activityElement.dataset.latitude;
-        const lon = activityElement.dataset.longitude;
-        const color = dayColors[parseInt(targetList.id.split('-')[1]) - 1]; // Couleur en fonction du jour
-
-        // Ajouter le pin si l'élément n'a pas déjà un pin associé
-        if (!pins[data]) {
-            pins[data] = L.marker([lat, lon], {
-                icon: L.divIcon({
-                    className: 'custom-pin',
-                    html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid black;"></div>`
-                })
-            }).addTo(map).bindPopup(activityElement.textContent);
-        }
-    } 
-    // Si l'activité est déplacée vers la liste initiale (activities-list)
-    else if (targetList && targetList.id === 'activities-list') {
-        const activitiesList = document.getElementById('activities-list');
-        
-        // Réintégrer dans la liste initiale
-        activitiesList.appendChild(activityElement);
-
-        // Supprimer le pin de la carte si l'élément est remis dans la liste initiale
-        if (pins[data]) {
-            map.removeLayer(pins[data]);
-            delete pins[data];
-        }
-    }
-}
-
-        // Réintégrer un élément dans la liste initiale et supprimer le pin de la carte
-        function dropToInitialList(ev) {
+        // Gérer le drop dans un jour spécifique ou dans la liste initiale
+        function drop(ev, day) {
             ev.preventDefault();
             const data = ev.dataTransfer.getData("text");
             const activityElement = document.getElementById(data);
-            const activitiesList = document.getElementById('activities-list');
+            const targetList = ev.target.closest('.activity-list');
 
-            // Ajouter à la liste initiale seulement si ce n'est pas déjà dans la liste
-            if (!activitiesList.contains(activityElement)) {
-                activitiesList.appendChild(activityElement);
+            if (targetList && targetList.id !== 'activities-list') {
+                targetList.appendChild(activityElement);
 
-                // Supprimer le pin de la carte si l'élément est remis dans la liste initiale
+                const lat = activityElement.dataset.latitude;
+                const lon = activityElement.dataset.longitude;
+                const color = dayColors[day - 1 % dayColors.length];
+
+                // Supprimer le pin existant (s'il existe) et en créer un nouveau pour changer la couleur
+                if (pins[data]) {
+                    map.removeLayer(pins[data]);
+                    delete pins[data];
+                }
+
+                // Ajouter un pin rond coloré pour l'activité dans un jour
+                pins[data] = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'custom-pin',
+                        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid black;"></div>`
+                    })
+                }).addTo(map).bindPopup(activityElement.textContent);
+
+            } else if (targetList && targetList.id === 'activities-list') {
+                targetList.appendChild(activityElement);
+
+                // Supprimer le pin rond associé lorsqu'on remet l'élément dans la liste initiale
                 if (pins[data]) {
                     map.removeLayer(pins[data]);
                     delete pins[data];
@@ -294,54 +223,35 @@ function drop(ev) {
             }
         }
 
-        // Fonction de recherche
-        function searchActivities() {
-            const searchTerm = document.getElementById('search-bar').value.toLowerCase();
-            const activityItems = document.querySelectorAll('.activity-item');
-
-            activityItems.forEach(item => {
-                const name = item.textContent.toLowerCase();
-                if (name.includes(searchTerm)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-
-        // Fonction pour réinitialiser toutes les activités dans la liste initiale
-        function clearAll() {
+        // Permettre de déposer les éléments dans la liste initiale
+        function dropToInitialList(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const activityElement = document.getElementById(data);
             const activitiesList = document.getElementById('activities-list');
-            const days = document.querySelectorAll('.day-container .activity-list');
 
-            // Parcourir chaque jour et réintégrer les activités dans la liste initiale
-            days.forEach(day => {
-                while (day.firstChild) {
-                    activitiesList.appendChild(day.firstChild);
-                }
-            });
+            // Réintégrer l'élément dans la liste initiale
+            if (!activitiesList.contains(activityElement)) {
+                activitiesList.appendChild(activityElement);
+            }
 
-            // Supprimer tous les pins de la carte
-            for (let pin in pins) {
-                if (pins[pin]) {
-                    map.removeLayer(pins[pin]);
-                    delete pins[pin];
-                }
+            // Supprimer le pin rond associé
+            if (pins[data]) {
+                map.removeLayer(pins[data]);
+                delete pins[data];
             }
         }
 
-        // Fonction pour slider vers la droite
         function slideRight() {
             const itineraryContainer = document.getElementById('itinerary');
             itineraryContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
         }
 
-        // Fonction pour slider vers la gauche
         function slideLeft() {
-            const itineraryContainer = document.getElementById('itinerary');
+            const itineraryContainer            = document.getElementById('itinerary');
             itineraryContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
         }
-
     </script>
 </body>
 </html>
+

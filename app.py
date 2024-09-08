@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, jsonify
+import os
 import pandas as pd
+import csv
 
 app = Flask(__name__)
 
@@ -33,6 +35,20 @@ def filter_activities():
     # Ajouter un print pour vérifier la réponse côté serveur
     print("Activités envoyées au client :", activities)
 
+    return jsonify(activities)
+
+@app.route('/get_activities')
+def get_activities():
+    csv_file = 'paris_activites_incontournables_final.csv'
+    if not os.path.exists(csv_file):
+        return jsonify({"error": "CSV file not found"}), 404
+    
+    activities = []
+    with open(csv_file, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            activities.append(row)
+    
     return jsonify(activities)
 
 
