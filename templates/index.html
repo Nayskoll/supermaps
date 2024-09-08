@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planifiez votre week-end à Paris</title>
+    <!-- Intégration de Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Lien vers le fichier CSS personnalisé -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+    <!-- Section Hero -->
+    <div class="hero-section">
+        <h1>Planifiez votre week-end à Paris</h1>
+        <p class="lead">Trouvez les meilleures activités et organisez un itinéraire parfait pour découvrir Paris.</p>
+    </div>
+
+    <!-- Section Formulaire -->
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="form-section">
+                    <h2 class="text-center mb-4">Personnalisez votre itinéraire</h2>
+                    <form id="criteria-form">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="group_type" class="form-label">Qui êtes-vous ?</label>
+                                <select id="group_type" name="group_type" class="form-select">
+                                    <option value="famille">Famille</option>
+                                    <option value="couple">Couple</option>
+                                    <option value="solo">Solo</option>
+                                    <option value="amis">Amis</option>
+                                    <option value="grand_groupe">Grand groupe</option>
+                                    <option value="petit_groupe">Petit groupe</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="budget" class="form-label">Budget</label>
+                                <select id="budget" name="budget" class="form-select">
+                                    <option value="low">Petit budget</option>
+                                    <option value="medium">Moyen</option>
+                                    <option value="high">Grand budget</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="num_days" class="form-label">Nombre de jours</label>
+                                <input type="number" id="num_days" name="num_days" class="form-control" value="3" min="1" max="7">
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <button type="button" class="btn btn-primary" onclick="viewActivities()">Voir les activités</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script pour rediriger vers l'itinéraire -->
+    <script>
+        function viewActivities() {
+            const form = document.getElementById('criteria-form');
+            const groupType = form.group_type.value;
+            const budget = form.budget.value;
+            const numDays = form.num_days.value;
+
+            // Stocker les critères dans le localStorage pour la prochaine page
+            localStorage.setItem('groupType', groupType);
+            localStorage.setItem('budget', budget);
+            localStorage.setItem('numDays', numDays);
+
+            // Redirection vers la page de l'itinéraire
+            window.location.href = "/itinerary";
+        }
+    </script>
+
+    <!-- Intégration de Bootstrap JS (nécessaire pour les composants Bootstrap) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

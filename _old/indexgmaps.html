@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paris Points of Interest</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+        }
+        #map {
+            height: 100vh;
+            flex: 1;
+        }
+        #sidebar {
+            width: 300px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-right: 2px solid #ddd;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        #visit-list {
+            width: 300px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-left: 2px solid #ddd;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        .poi-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .poi-item:hover {
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+        .poi-item .poi-name {
+            font-size: 16px;
+            color: #333;
+        }
+        .poi-item .poi-score {
+            font-size: 18px;
+            color: #ff4500;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h4>Points d'intérêt</h4>
+        <div class="form-group">
+            <label for="interest-slider">Note d'intérêt minimum : <span id="slider-value">0</span></label>
+            <input type="range" class="custom-range" id="interest-slider" min="0" max="100" step="1" value="0" oninput="updateSliderValue(this.value)">
+        </div>
+        <div class="form-group">
+            <label for="category-filter">Catégorie :</label>
+            <select id="category-filter" class="form-control" onchange="filterMap()">
+                <option value="">Toutes les catégories</option>
+                <option value="Monument">Monument</option>
+                <option value="Musée">Musée</option>
+                <option value="Monument religieux">Monument religieux</option>
+                <option value="Parc">Parc</option>
+                <option value="Quartier">Quartier</option>
+                <option value="Pont">Pont</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <button class="btn btn-secondary" onclick="sortPoiList('asc')">Trier par note (croissant)</button>
+            <button class="btn btn-secondary" onclick="sortPoiList('desc')">Trier par note (décroissant)</button>
+        </div>
+        <ul id="poi-list" class="list-group">
+            <!-- La liste des éléments sur la carte apparaîtra ici -->
+        </ul>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="visit-list">
+        <h4>Liste "À visiter"</h4>
+        <ul id="visit-list-items" class="list-group">
+            <!-- Les éléments de la liste apparaîtront ici -->
+        </ul>
+        <button class="btn btn-primary mt-3" onclick="filterMap()">Afficher uniquement les éléments de la liste</button>
+        <button class="btn btn-secondary mt-3" onclick="resetMap()">Réinitialiser la carte</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDSVmgNWQSsyKZ3YzllzvDPd1ygIRy3BpM"></script>
+    <script>
+        let map;
+        let allMarkers = [];
+        let visitList = [];
+        let minInterest = 0;
+        let currentCategory = "";
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 48.8566, lng: 2.3522 },
+                zoom: 12
+            });
+
+            fetch('/api/points_of_interest')
+                .then(response => response.json())
+                .then(pointsOfInterest => {
+                    pointsOfInterest.forEach(function(point) {
+                        const marker = new google.maps.Marker({
+                            position: { lat: point['Latitude'], lng: point['Longitude'] },
+                            map: map,
+                            title: point['Nom du lieu']
+                        });
+
+                        const contentString = createPopupContent(point);
+                        const infowindow = new google.maps.InfoWindow({
+                            content: contentString
+                        });
+
+                        marker.addListener('click', function() {
+                            infowindow.open(map, marker);
+                        });
+
+                        allMarkers.push({ marker: marker, point: point });
+                        addToPoiList(point);
+                    });
+
+                    filterPoiList();
+                });
+        }
+
+        function createPopupContent(point) {
+            return `
+                <div class="popup-content">
+                    <h5>${point['Nom du lieu']}</h5>
+                    <p><strong>Note d'intérêt :</strong> ${point['Note d\'intérêt']}</p>
+                    <p><strong>Note Google Maps :</strong> ${point['Note Google Maps']}</p>
+                    <p><strong>Résumé des avis :</strong> ${point['Résumé des avis Google Maps']}</p>
+                    <p><strong>Histoire courte :</strong> ${point['Histoire courte']}</p>
+                    <button class="btn btn-primary btn-sm" onclick="showLongDescription('${point['Nom du lieu']}')">En savoir plus</button>
+                    <div id="long-description-${point['Nom du lieu']}" style="display:none;">
+                        <p><strong>Description longue :</strong><br>${point['Histoire longue']}</p>
+                    </div>
+                    <br>
+                    <button class="btn btn-success btn-sm" onclick="addToVisitList(${JSON.stringify(point).replace(/"/g, '&quot;')})">Ajouter à la liste 'À visiter'</button>
+                    <textarea class="form-control mt-2" id="comment-${point['Nom du lieu']}" rows="2" placeholder="Ajouter un commentaire..."></textarea>
+                </div>
+            `;
+        }
+
+        function addToVisitList(point) {
+            const comment = document.getElementById('comment-' + point['Nom du lieu']).value;
+            point.comment = comment;
+            visitList.push(point);
+            updateVisitListUI();
+        }
+
+        function updateVisitListUI() {
+            const visitListItems = document.getElementById('visit-list-items');
+            visitListItems.innerHTML = ''; 
+
+            visitList.forEach(function(item) {
+                const listItem = document.createElement('li');
+                listItem.className = 'list-group-item';
+                listItem.innerHTML = `
+                    <strong>${item['Nom du lieu']}</strong><br>
+                    Commentaire: ${item.comment || 'Aucun'}
+                `;
+                visitListItems.appendChild(listItem);
+            });
+        }
+
+        function filterMap() {
+            allMarkers.forEach(item => item.marker.setMap(null));
+
+            allMarkers.forEach(function(item) {
+                if (
+                    item.point['Note d\'intérêt'] >= minInterest &&
+                    (currentCategory === "" || item.point['Type de point d\'intérêt'] === currentCategory)
+                ) {
+                    item.marker.setMap(map);
+                }
+            });
+
+            filterPoiList();
+        }
+
+        function resetMap() {
+            allMarkers.forEach(item => item.marker.setMap(map));
+            map.setCenter({ lat: 48.8566, lng: 2.3522 });
+            map.setZoom(12);
+            filterPoiList();
+        }
+
+        function addToPoiList(point) {
+            const poiListItem = document.createElement('li');
+            poiListItem.className = 'poi-item list-group-item-action';
+            poiListItem.innerHTML = `
+                <span class="poi-name">${point['Nom du lieu']}</span>
+                <span class="poi-score">${point['Note d\'intérêt']}</span>
+            `;
+            poiListItem.onclick = function() {
+                map.setCenter({ lat: point['Latitude'], lng: point['Longitude'] });
+                map.setZoom(14);
+                const marker = allMarkers.find(m => m.point['Nom du lieu'] === point['Nom du lieu']).marker;
+                google.maps.event.trigger(marker, 'click');
+            };
+            poiListItem.dataset.interest = point['Note d\'intérêt'];
+            poiListItem.dataset.category = point['Type de point d\'intérêt'];
+            document.getElementById('poi-list').appendChild(poiListItem);
+        }
+
+        function filterPoiList() {
+            const poiListItems = document.getElementById('poi-list').children;
+            Array.from(poiListItems).forEach(function(item) {
+                if (
+                    parseInt(item.dataset.interest) >= minInterest &&
+                    (currentCategory === "" || item.dataset.category === currentCategory)
+                ) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function showLongDescription(name) {
+            const element = document.getElementById('long-description-' + name);
+            element.style.display = element.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function updateSliderValue(value) {
+            minInterest = value;
+            document.getElementById('slider-value').textContent = value;
+            filterMap();
+        }
+
+        function sortPoiList(order) {
+            const poiList = document.getElementById('poi-list');
+            const items = Array.from(poiList.children);
+
+            items.sort((a, b) => {
+                const interestA = parseInt(a.dataset.interest);
+                const interestB = parseInt(b.dataset.interest);
+
+                return order === 'asc' ? interestA - interestB : interestB - interestA;
+            });
+
+            items.forEach(item => poiList.appendChild(item));
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
