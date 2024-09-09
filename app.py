@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 import os
 import pandas as pd
 import csv
+from dotenv import load_dotenv
+import os
 
 app = Flask(__name__)
 
@@ -9,9 +11,11 @@ app = Flask(__name__)
 file_path = 'paris_activites_incontournables_final.csv'
 data = pd.read_csv(file_path)
 
-# Vérification du contenu du CSV
-print("Données du CSV chargées :")
-print(data.head())  # Affiche les premières lignes du CSV pour vérifier
+load_dotenv()  # Charger les variables d'environnement à partir du fichier .env
+@app.route('/api/key')
+def get_key():
+    api_key = os.getenv('MAPBOX_API_KEY')
+    return jsonify({'apiKey': api_key})
 
 
 @app.route('/')
