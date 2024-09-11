@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Rotating Globe with Custom 2D Pins</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+        }
+        #globe-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        .city-label {
+            position: absolute;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px;
+            border-radius: 3px;
+            display: none;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="globe-container"></div>
+    <div id="city-label" class="city-label"></div>
+
+    <!-- Include Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        const cities = [
+            { name: "Paris", lat: 48.8566, lng: 2.3522, url: "itinerary.html" },
+            { name: "New York", lat: 40.7128, lng: -74.0060 },
+            { name: "Tokyo", lat: 35.6762, lng: 139.6503 },
+            { name: "London", lat: 51.5074, lng: -0.1278 },
+            { name: "Berlin", lat: 52.5200, lng: 13.4050 },
+            { name: "Sydney", lat: -33.8688, lng: 151.2093 },
+            { name: "Rio de Janeiro", lat: -22.9068, lng: -43.1729 },
+            { name: "Moscow", lat: 55.7558, lng: 37.6173 },
+            { name: "Toronto", lat: 43.6511, lng: -79.3837 },
+            { name: "Cairo", lat: 30.0444, lng: 31.2357 }
+        ];
+
+        const globeContainer = document.getElementById('globe-container');
+        const cityLabel = document.getElementById('city-label');
+
+        // Create the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        globeContainer.appendChild(renderer.domElement);
+
+        // Create a group for the globe and cities so they rotate together
+        const globeGroup = new THREE.Group();
+        scene.add(globeGroup);
+
+        // Create the Globe using a SphereGeometry
+        const geometry = new THREE.SphereGeometry(5, 32, 32);
+        const textureLoader = new THREE.TextureLoader();
+        const earthTexture = textureLoader.load('https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg');
+        const material = new THREE.MeshBasicMaterial({ map: earthTexture });
+        const earth = new THREE.Mesh(geometry, material);
+        globeGroup.add(earth);
+
+        // Add ambient light
+        const light = new THREE.AmbientLight(0x404040); // soft white light
+        scene.add(light);
+
+        camera.position.z = 10;
+
+        // Add OrbitControls for interactive rotation
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // Smooth movement
+        controls.dampingFactor = 0.1;
+        controls.enableZoom = true; // Allow zooming in/out
+        controls.minDistance = 7;   // Minimum zoom
+        controls.maxDistance = 20;  // Maximum zoom
+        controls.rotateSpeed = 0.4; // Mouse rotation speed
+
+        // Function to convert lat/lng to 3D coordinates
+        function latLngToVector3(lat, lng, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lng + 180) * (Math.PI / 180);
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Add cities as 2D pins
+        const pinTexture = textureLoader.load('https://image.shutterstock.com/image-vector/map-pin-icon-flat-design-260nw-1938418390.jpg'); // Use a pin image here
+        cities.forEach(city => {
+            const cityPosition = latLngToVector3(city.lat, city.lng, 5);
+
+            const pinGeometry = new THREE.PlaneGeometry(0.2, 0.2);  // Simple 2D plane for the pin
+            const pinMaterial = new THREE.MeshBasicMaterial({ map: pinTexture, transparent: true });
+            const pinMesh = new THREE.Mesh(pinGeometry, pinMaterial);
+            pinMesh.position.copy(cityPosition);
+            pinMesh.lookAt(camera.position);  // Ensure the pin always faces the camera
+            globeGroup.add(pinMesh);
+
+            pinMesh.userData = city;  // Store city data for interaction
+        });
+
+        // Raycaster for detecting hover and clicks
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onMouseMove(event) {
+            // Convert mouse position to normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check if any objects are intersected
+            const intersects = raycaster.intersectObjects(globeGroup.children);
+
+            if (intersects.length > 0) {
+                const hoveredObject = intersects[0].object;
+                const city = hoveredObject.userData;
+
+                if (city) {
+                    // Show city label on hover
+                    cityLabel.style.display = 'block';
+                    cityLabel.style.left = `${event.clientX + 10}px`;
+                    cityLabel.style.top = `${event.clientY + 10}px`;
+                    cityLabel.textContent = city.name;
+                }
+            } else {
+                cityLabel.style.display = 'none';  // Hide label if not hovering over a city
+            }
+        }
+
+        function onMouseClick(event) {
+            // Update the raycaster for clicks
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(globeGroup.children);
+            if (intersects.length > 0) {
+                const clickedObject = intersects[0].object;
+                const city = clickedObject.userData;
+
+                if (city && city.url) {
+                    window.location.href = city.url;  // Redirect to the itinerary page for Paris
+                }
+            }
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('click', onMouseClick);
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();  // Update controls (smooth rotation)
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Adjust size when window is resized
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+    </script>
+</body>
+</html>

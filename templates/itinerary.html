@@ -6,22 +6,43 @@
     <title>Votre Itinéraire à Paris</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
 
 </head>
 <body>
     <h1>Votre Itinéraire à Paris</h1>
     <div class="layout-container">
         <div class="left-section">
-            <input type="text" id="search-bar" placeholder="Rechercher une activité..." onkeyup="searchActivities()">
-    
-            <div id="activities-list" class="activity-list" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
-                <!-- Liste des activités filtrées sera générée ici -->
+            <!-- Conteneur pour les barres de recherche côte à côte -->
+            <div class="search-container">
+                <input type="text" id="search-bar-attractions" class="search-bar" placeholder="Rechercher une activité..." onkeyup="searchAttractions()">
+                <input type="text" id="search-bar-restaurants" class="search-bar" placeholder="Rechercher un restaurant..." onkeyup="searchRestaurants()">
             </div>
-    
+
+            <!-- Divisé en deux sections: Attractions et Bonnes adresses -->
+            <div class="activity-container">
+                <div id="activities-list" class="activity-section" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
+                    <h2 class="activity-title">Attractions</h2>
+                    <!-- Liste des activités filtrées sera générée ici -->
+                </div>
+                
+                <div id="bonnes-adresses-list" class="activity-section" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
+                    <h2 class="activity-title">Bonnes adresses</h2>
+                    <!-- Liste des bonnes adresses sera ajoutée ici -->
+                </div>
+            </div>
+            
+            
+            <!-- Wishlist block -->
+            <div id="wishlist" class="wishlist" ondrop="dropToWishlist(event)" ondragover="allowDrop(event)">
+                <h2>Wishlist</h2>
+                <!-- Items dropped in wishlist will appear here -->
+            </div>
+        
             <div class="carousel-container">
                 <button class="nav-button left" onclick="slideLeft()">⬅️</button>
                 <button class="nav-button right" onclick="slideRight()">➡️</button>
-    
+        
                 <div id="itinerary">
                     <!-- Jours dynamiques seront générés ici -->
                 </div>
@@ -37,9 +58,24 @@
     <script>
         // Variables globales
         const map = L.map('map').setView([48.8566, 2.3522], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+
+        // Fetch the API key from Flask
+        fetch('/api/key')
+            .then(response => response.json())
+            .then(data => {
+                // Use the API key in the tile layer
+                L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${data.apiKey}`, {
+                    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+                    maxZoom: 18,
+                    tileSize: 512,
+                    zoomOffset: -1
+                }).addTo(map);
+            })
+            .catch(error => {
+                console.error('Erreur lors de la récupération de la clé API :', error);
+            });   
+
+
 
         const activities = JSON.parse(localStorage.getItem('filteredActivities')) || [];
         const numDays = parseInt(localStorage.getItem('numDays')) || 3;
@@ -191,19 +227,6 @@
             itineraryContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
         }
 
-        // Récupérer les activités depuis l'API
-        document.addEventListener('DOMContentLoaded', () => {
-            fetch('/get_activities')
-                .then(response => response.json())
-                .then(data => {
-                    localStorage.setItem('filteredActivities', JSON.stringify(data));
-                    displayActivities(data);
-                })
-                .catch(error => {
-                    console.error('Erreur lors de la récupération des activités :', error);
-                    document.getElementById('activities-list').innerHTML = '<p>Erreur lors du chargement des activités.</p>';
-                });
-        });
 
         // Exemple de création de pins modernes
         const modernPin = L.divIcon({
@@ -219,6 +242,246 @@
             return L.marker([lat, lon], { icon: modernPin })
                 .addTo(map)
                 .bindPopup(content);
+        }
+
+
+        // Fonction pour gérer le drop dans la wishlist
+        function dropToWishlist(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const activityElement = document.getElementById(data);
+            const wishlist = document.getElementById('wishlist');
+
+            // Ajouter l'élément de l'activité à la wishlist s'il n'y est pas déjà
+            if (!wishlist.contains(activityElement)) {
+                wishlist.appendChild(activityElement);
+            }
+
+            // Créer un pin rond pour cet élément dans la wishlist
+            const lat = activityElement.dataset.latitude;
+            const lon = activityElement.dataset.longitude;
+            const color = '#FF00FF'; // Couleur spécifique pour les pins de la wishlist (vous pouvez la changer)
+
+            if (pins[data]) {
+                // Si un pin existe déjà, le retirer avant d'ajouter le nouveau
+                map.removeLayer(pins[data]);
+                delete pins[data];
+            }
+
+            // Ajouter un nouveau pin pour l'élément wishlist
+            pins[data] = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'custom-pin',
+                    html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid black;"></div>`
+                })
+            }).addTo(map).bindPopup(activityElement.textContent);
+        }
+
+
+        // Function to handle drop back into the activity list
+        function dropToInitialList(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const activityElement = document.getElementById(data);
+            const activitiesList = document.getElementById('activities-list');
+
+            // Add the activity element back to the activity list if it's not already there
+            if (!activitiesList.contains(activityElement)) {
+                activitiesList.appendChild(activityElement);
+            }
+        }
+
+        // Allow drop
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        // Handle drag event
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+
+        function displayRestaurants(restaurants) {
+            const restaurantsList = document.getElementById('bonnes-adresses-list');
+            restaurantsList.innerHTML = ''; // Réinitialiser la liste des restaurants
+
+            restaurants.forEach((restaurant, index) => {
+                const restaurantElement = document.createElement('div');
+                restaurantElement.className = 'activity-item';
+                restaurantElement.id = `restaurant-${index}`;
+                restaurantElement.textContent = restaurant['Nom du lieu'];
+                restaurantElement.dataset.latitude = restaurant['Latitude'];
+                restaurantElement.dataset.longitude = restaurant['Longitude'];
+                restaurantElement.dataset.index = index;
+                restaurantElement.setAttribute('draggable', 'true');
+                restaurantElement.ondragstart = drag;
+
+                // Ajout d'un événement au clic pour afficher les détails du restaurant
+                restaurantElement.addEventListener('click', function() {
+                    const lat = this.dataset.latitude;
+                    const lon = this.dataset.longitude;
+                    const summary = restaurant['Résumé rapide'] || 'Pas de résumé disponible';
+                    const popupContent = `<strong>${this.textContent}</strong><br>${summary}`;
+
+                    if (lastClickedActivity === this) {
+                        if (currentPopup) {
+                            map.closePopup(currentPopup);
+                            currentPopup = null;
+                            lastClickedActivity = null;
+                            return;
+                        }
+                    }
+
+                    if (currentPopup) {
+                        map.closePopup(currentPopup);
+                    }
+
+                    currentPopup = L.popup()
+                        .setLatLng([lat, lon])
+                        .setContent(popupContent)
+                        .openOn(map);
+
+                    lastClickedActivity = this;
+                });
+
+                restaurantsList.appendChild(restaurantElement);
+            });
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Charger les activités (déjà existant)
+            fetch('/get_activities')
+                .then(response => response.json())
+                .then(data => {
+                    localStorage.setItem('filteredActivities', JSON.stringify(data));
+                    displayActivities(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement des activités :', error);
+                    document.getElementById('activities-list').innerHTML = '<p>Erreur lors du chargement des activités.</p>';
+                });
+
+            // Charger les restaurants
+            fetch('/get_restaurants')
+                .then(response => response.json())
+                .then(data => {
+                    localStorage.setItem('filteredRestaurants', JSON.stringify(data)); // Enregistrer les restaurants dans localStorage
+                    displayRestaurants(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement des restaurants :', error);
+                    document.getElementById('bonnes-adresses-list').innerHTML = '<p>Erreur lors du chargement des bonnes adresses.</p>';
+                });
+        });
+
+
+
+
+        // Fonction de recherche des attractions (activités)
+        function searchAttractions() {
+            const searchTerm = document.getElementById('search-bar-attractions').value.toLowerCase();
+            const activitiesList = document.getElementById('activities-list');
+            activitiesList.innerHTML = ''; // Vide la liste avant d'ajouter les résultats filtrés
+
+            const activities = JSON.parse(localStorage.getItem('filteredActivities')) || [];
+
+            // Filtrage des activités
+            const filteredActivities = activities.filter(activity => 
+                activity['Nom du lieu'].toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredActivities.length === 0) {
+                activitiesList.innerHTML = '<p>Aucune attraction trouvée.</p>';
+            } else {
+                displayActivities(filteredActivities); // Affiche les activités filtrées
+            }
+        }
+
+        // Fonction de recherche des restaurants (bonnes adresses)
+        function searchRestaurants() {
+            const searchTerm = document.getElementById('search-bar-restaurants').value.toLowerCase();
+            const restaurantsList = document.getElementById('bonnes-adresses-list');
+            restaurantsList.innerHTML = ''; // Vide la liste avant d'ajouter les résultats filtrés
+
+            const restaurants = JSON.parse(localStorage.getItem('filteredRestaurants')) || [];
+
+            console.log(restaurants); // Vérifier si les données de restaurants sont bien récupérées
+
+            // Si le champ de recherche est vide, réafficher tous les restaurants
+            if (searchTerm === '') {
+                console.log('Le champ de recherche est vide, tous les restaurants seront affichés.');
+                displayRestaurants(restaurants); // Affiche tous les restaurants
+                return;
+            }
+
+            // Filtrage des restaurants
+            const filteredRestaurants = restaurants.filter(restaurant => 
+                restaurant['Nom du lieu'].toLowerCase().includes(searchTerm)
+            );
+
+            console.log('Search term:', searchTerm); // Vérifier la valeur du terme de recherche
+            console.log('Filtered restaurants:', filteredRestaurants); // Voir si des restaurants sont filtrés
+
+            if (filteredRestaurants.length === 0) {
+                restaurantsList.innerHTML = '<p>Aucun restaurant trouvé.</p>';
+            } else {
+                displayRestaurants(filteredRestaurants); // Affiche les restaurants filtrés
+            }
+        }
+
+
+        // Gérer le drop vers la liste initiale
+        function dropToInitialList(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const activityElement = document.getElementById(data);
+            const activitiesList = document.getElementById('activities-list');
+
+            // Ajouter l'élément de l'activité à la liste d'activités si ce n'est pas déjà là
+            if (!activitiesList.contains(activityElement)) {
+                activitiesList.appendChild(activityElement);
+            }
+
+            // Supprimer le marqueur de la carte
+            if (pins[data]) { // Vérifier si un pin existe pour cet élément
+                map.removeLayer(pins[data]); // Supprimer le marqueur de la carte
+                delete pins[data]; // Supprimer la référence du pin
+            }
+        }
+
+        function drop(ev, day) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const activityElement = document.getElementById(data);
+            const targetList = ev.target.closest('.activity-list');
+
+            if (targetList && targetList.id !== 'activities-list') {
+                targetList.appendChild(activityElement);
+
+                const lat = activityElement.dataset.latitude;
+                const lon = activityElement.dataset.longitude;
+                const color = dayColors[day - 1 % dayColors.length];
+
+                if (pins[data]) {
+                    map.removeLayer(pins[data]); // Supprimer le pin existant avant de créer un nouveau
+                    delete pins[data]; 
+                }
+
+                pins[data] = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'custom-pin',
+                        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid black;"></div>`
+                    })
+                }).addTo(map).bindPopup(activityElement.textContent);
+            } else if (targetList && targetList.id === 'activities-list') {
+                targetList.appendChild(activityElement);
+                if (pins[data]) {
+                    map.removeLayer(pins[data]); // Supprimer le pin si l'élément revient dans la liste initiale
+                    delete pins[data];
+                }
+            }
         }
 
     </script>
