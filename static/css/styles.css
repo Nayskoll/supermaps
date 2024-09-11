@@ -21,7 +21,7 @@ div {
     padding: 10px;
     width: 100%;
     border-radius: 8px;
-    border: 1px solid #ccc;
+    border: 0px solid #ccc;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     margin-bottom: 15px;
     color: #fff; /* Make the text stand out */
@@ -66,7 +66,7 @@ div {
 
 .activity-list {
     min-height: 150px;
-    border: 2px dashed #ccc;
+    border: none; /*0px dashed #ccc;*/
     padding: 10px;
     background-color: #fff;
     border-radius: 8px;
@@ -359,4 +359,21 @@ div {
 .activity-container {
     height: 300px; /* Définit la hauteur à 300px, ajuste selon tes besoins */
     overflow-y: auto; /* Ajoute un défilement vertical si le contenu dépasse la hauteur */
+}
+
+
+.leaflet-popup-content-wrapper {
+    background-color: #F4E3C1; /* Couleur de fond Terracotta */
+    color: #000000; /* Couleur du texte */
+    border-radius: 10px; /* Ajoute des coins arrondis */
+    border: 2px solid #ffffff;
+
+    font-family: 'Poppins', sans-serif;
+
+}
+
+.leaflet-popup-tip {
+    background-color: #E2725B; /* Change également la couleur de la petite flèche */
+    border: 2px solid #ffffff;
+
 }
