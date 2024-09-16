@@ -13,24 +13,42 @@
     <h1>Votre Itinéraire à Paris</h1>
     <div class="layout-container">
         <div class="left-section">
-            <!-- Conteneur pour les barres de recherche côte à côte -->
-            <div class="search-container">
-                <input type="text" id="search-bar-attractions" class="search-bar" placeholder="Rechercher une activité..." onkeyup="searchAttractions()">
-                <input type="text" id="search-bar-restaurants" class="search-bar" placeholder="Rechercher un restaurant..." onkeyup="searchRestaurants()">
-            </div>
+            <!-- Boutons de navigation pour le défilement -->
+            <button class="nav-button left" onclick="scrollLeft()">⬅️</button>
+            <button class="nav-button right" onclick="scrollRight()">➡️</button>
 
-            <!-- Divisé en deux sections: Attractions et Bonnes adresses -->
-            <div class="activity-container">
-                <div id="activities-list" class="activity-section" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
-                    <h2 class="activity-title">Attractions</h2>
-                    <!-- Liste des activités filtrées sera générée ici -->
+            <!-- Conteneur défilable horizontalement -->
+            <div class="scrollable-container">
+                <!-- Premier bloc : Attractions -->
+                <div class="list-container">
+                    <input type="text" id="search-bar-attractions" class="search-bar" placeholder="Rechercher une activité..." onkeyup="searchAttractions()">
+                    <div id="activities-list" class="activity-section" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
+                        <h2 class="activity-title">Attractions</h2>
+                        <!-- Liste des activités filtrées sera générée ici -->
+                    </div>
+                </div>
+
+                <!-- Deuxième bloc : Bonnes adresses -->
+                <div class="list-container">
+                    <input type="text" id="search-bar-restaurants" class="search-bar" placeholder="Rechercher un restaurant..." onkeyup="searchRestaurants()">
+                    <div id="bonnes-adresses-list" class="activity-section" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
+                        <h2 class="activity-title">Bonnes adresses</h2>
+                        <!-- Liste des bonnes adresses sera ajoutée ici -->
+                    </div>
                 </div>
                 
-                <div id="bonnes-adresses-list" class="activity-section" ondrop="dropToInitialList(event)" ondragover="allowDrop(event)">
-                    <h2 class="activity-title">Bonnes adresses</h2>
-                    <!-- Liste des bonnes adresses sera ajoutée ici -->
+                <!-- Troisième bloc : à définir -->
+                <div class="list-container">
+                    <input type="text" id="search-bar-autre" class="search-bar" placeholder="Rechercher..." onkeyup="searchAutre()">
+                    <div id="autre-list" class="activity-section">
+                        <h2 class="activity-title">Autre</h2>
+                    </div>
                 </div>
             </div>
+
+
+
+
             
             
             <!-- Wishlist block -->
@@ -482,6 +500,22 @@
                     delete pins[data];
                 }
             }
+        }
+
+        function scrollLeft() {
+            const container = document.querySelector('.scrollable-container');
+            container.scrollBy({
+                left: -container.clientWidth,
+                behavior: 'smooth'
+            });
+        }
+
+        function scrollRight() {
+            const container = document.querySelector('.scrollable-container');
+            container.scrollBy({
+                left: container.clientWidth,
+                behavior: 'smooth'
+            });
         }
 
     </script>
