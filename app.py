@@ -81,6 +81,32 @@ def get_restaurants():
     
     return jsonify(restaurants)
 
+
+@app.route('/get_streets')
+def get_streets():
+    csv_file = 'paris_streets.csv'  # Utilisez le nouveau fichier CSV
+    if not os.path.exists(csv_file):
+        return jsonify({"error": "CSV file not found"}), 404
+    
+    streets = []
+    with open(csv_file, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            # Adaptation : Transformer chaque ligne en un dictionnaire
+            street = {
+                "Nom du lieu": row["Nom du lieu"],
+                "Latitude": row["Latitude"],
+                "Longitude": row["Longitude"],
+                "Note d'intérêt": row["Note d'intérêt"],
+                "Note Google Maps": row["Note Google Maps"],
+                "Résumé des avis Google Maps": row["Résumé des avis Google Maps"],
+                "Résumé rapide": row["Résumé rapide"],
+                "Catégorie": row["Catégorie"],
+                "Budget": row["Budget"]
+            }
+            streets.append(street)    
+    return jsonify(streets)
+
 @app.route('/itinerary')
 def itinerary():
     return render_template('itinerary.html')
