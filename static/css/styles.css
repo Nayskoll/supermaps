@@ -73,7 +73,7 @@ h1 {
     border-radius: 8px;
     border: none;
     margin-bottom: 15px;
-    color: #fff;
+    color: #000000;
     background-color: #ffffff; /* Couleur de fond pour contraster avec le texte */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
