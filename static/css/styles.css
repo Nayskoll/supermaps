@@ -241,6 +241,11 @@ div {
     height: 100vh; /* Full viewport height */
 }
 
+.left-section,
+.right-section {
+    flex: 1;
+}
+
 .left-section, .right-section {
     padding: 20px;
     overflow-y: auto;
